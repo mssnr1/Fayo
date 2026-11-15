@@ -213,5 +213,62 @@ export const CHEEK_LIFT_DEMO: FaceExercise = {
   repetitions: 1,
 }
 
-/** All exercises, in the order of the overview. */
-export const EXERCISES: FayoExercise[] = [BROW_LIFT, EYE_SMOOTHER, CHEEK_LIFT]
+const STRETCH = {
+  jaw: 1,
+  orbicularisOris: 0.7,
+  'zygomaticusLeft.down': 1,
+  'zygomaticusRight.down': 1,
+  'levatorLabiiLeft.down': 1,
+  'levatorLabiiRight.down': 1,
+  masseterLeft: 0.6,
+  masseterRight: 0.6,
+}
+
+/**
+ * "Gesichts-Stretch" (warm-up): the mouth opens wide with the lips rounded to an O, the cheeks and the
+ * upper lip are drawn down and the jaw hangs long, which stretches the lifting muscles of the mid face.
+ */
+export const FACE_STRETCH: FayoExercise = {
+  id: 'face-stretch',
+  title: 'Gesichts-Stretch',
+  target: 'Aufwärmen',
+  blurb: 'Mund weit zum O öffnen, Wangen und Oberlippe nach unten ziehen.',
+  minutes: '1 Minute',
+  lead: 'Dehnt Wangen, Oberlippe und Kiefer: Mund weit zu einem O öffnen und das Gesicht sanft lang nach unten ziehen. Gut vor den anderen Übungen.',
+  fine: '5 Wiederholungen. Nur so weit öffnen, wie es angenehm ist. Bei Kiefergelenksbeschwerden weglassen.',
+  card: 'cards/face-stretch',
+  get demo() {
+    return FACE_STRETCH_DEMO
+  },
+  focus: 1.535,
+  intro: [{ label: 'Ankommen', cue: 'Schultern locker, Kiefer locker, Zunge liegt entspannt.', durationMs: 4000, muscles: {} }],
+  steps: [
+    { label: 'Öffnen', cue: 'Mund weit öffnen und die Lippen zu einem O formen.', durationMs: 2500, muscles: STRETCH },
+    { label: 'Ziehen', cue: 'Wangen und Oberlippe nach unten ziehen, das Gesicht wird lang. Halten.', durationMs: 5000, muscles: STRETCH, pulse: 0.1 },
+    { label: 'Lösen', cue: 'Langsam schließen und locker lassen.', durationMs: 2500, muscles: {} },
+    { label: 'Pause', cue: 'Durchatmen.', durationMs: 2000, muscles: {} },
+  ],
+  repetitions: 5,
+  arrows: [
+    // The cheeks and the upper lip are drawn down, the jaw drops.
+    { from: [0.056, 1.578, 0.082], to: [0.054, 1.536, 0.088], bow: 0.006 },
+    { from: [0.013, 1.548, 0.1], to: [0.013, 1.526, 0.102], bow: 0.004 },
+    { from: [0, 1.488, 0.098], to: [0, 1.452, 0.09], bow: 0.006, single: true },
+  ],
+  arrowsFollow: 'jaw',
+  follow: { by: 'jaw', areas: { mentalis: 0.4, nasalis: 0.2, buccinatorLeft: 0.4, buccinatorRight: 0.4 } },
+}
+
+export const FACE_STRETCH_DEMO: FaceExercise = {
+  id: 'face-stretch-demo',
+  steps: [
+    { label: '1 · Locker', cue: 'Kiefer und Schultern locker.', durationMs: 2600, muscles: {} },
+    { label: '2 · Öffnen', cue: 'Mund weit zum O öffnen.', durationMs: 2400, muscles: STRETCH },
+    { label: '3 · Ziehen', cue: 'Wangen und Oberlippe nach unten, halten.', durationMs: 3200, muscles: STRETCH, pulse: 0.1 },
+    { label: '4 · Lösen', cue: 'Langsam schließen.', durationMs: 2600, muscles: {} },
+  ],
+  repetitions: 1,
+}
+
+/** All exercises, in the order of the overview: the warm-up first. */
+export const EXERCISES: FayoExercise[] = [FACE_STRETCH, BROW_LIFT, EYE_SMOOTHER, CHEEK_LIFT]
