@@ -3,8 +3,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import modelUrl from '@anima-labs/design/models/atmen-anatomy.glb?url'
 import { faceExerciseDuration, facePose } from '@anima-labs/design/engine'
-import { armRig, FACE_MOVES, FACE_PALETTES, faceActivation, faceMuscleMaterial, faceMuscleRig, guideArrows, makeStripeMaterials, muscleHead, STRIPE_PALETTES } from '@anima-labs/design/figure'
-import { BROW_LIFT, BROW_LIFT_DEMO, HANDS } from './exercises'
+import { FACE_MOVES, FACE_PALETTES, faceActivation, faceMuscleMaterial, faceMuscleRig, guideArrows, makeStripeMaterials, muscleHead, STRIPE_PALETTES } from '@anima-labs/design/figure'
+import { BROW_LIFT, BROW_LIFT_DEMO } from './exercises'
 
 /**
  * Fayo: one guided exercise (Brauen-Lift) on the shared figure. The face map lights and moves the
@@ -38,7 +38,6 @@ const skins: THREE.Mesh[] = []
 const faces: THREE.Mesh[] = []
 const depths: THREE.Mesh[] = []
 const rigged: THREE.Mesh[] = []
-let hands: ReturnType<typeof armRig> | null = null
 model.traverse((o) => {
   const mesh = o as THREE.Mesh
   if (!mesh.isMesh) return
@@ -51,8 +50,6 @@ model.traverse((o) => {
     mesh.updateMorphTargets()
     rigged.push(mesh)
   }
-  // The arms can move, so the figure shows the exercise with its own hands.
-  if (mesh.name === 'Arms') hands = armRig(mesh)
   ;(mesh.name === 'Arms' ? skins : faces).push(mesh)
   mesh.renderOrder = 0.2
   const depth = mesh.clone(false)
@@ -76,9 +73,7 @@ function applyTheme() {
   const skin = dark ? STRIPE_PALETTES.dark : { ...STRIPE_PALETTES.light, bodyRim: FACE_PALETTES.light.bodyRim }
   const stripes = makeStripeMaterials(skin, dark, { value: 99 }, undefined, undefined, undefined, undefined, { softRim: true })
   faces.forEach((m) => (m.material = face))
-  // By day the hands take a slightly deeper tone, so they read in front of the pale face.
-  const handSkin = dark ? stripes : makeStripeMaterials({ ...skin, bodyBase: '#e4e7f0', bodyRim: '#5f6788' }, dark, { value: 99 }, undefined, undefined, undefined, undefined, { softRim: true })
-  skins.forEach((m) => (m.material = handSkin.posedSkin))
+  skins.forEach((m) => (m.material = stripes.skin))
   depths.forEach((m) => (m.material = stripes.skinDepth))
   if (arrows) {
     scene.remove(arrows.group)
@@ -173,11 +168,10 @@ go.disabled = false
 go.textContent = 'Starten'
 
 const demoTotal = faceExerciseDuration(BROW_LIFT_DEMO)
-let handsAt = -1
-function setHands(k: number) {
-  if (Math.abs(k - handsAt) < 0.002) return
-  handsAt = k
-  hands?.pose(BROW_LIFT.hands, k)
+/** The neighbouring skin moves along with the working muscle. */
+function follow(muscles: Record<string, number>) {
+  const k = muscles[BROW_LIFT.follow.by] ?? 0
+  for (const [id, share] of Object.entries(BROW_LIFT.follow.areas)) rig.follow(id, share * k)
 }
 
 function tick(now: number) {
@@ -188,6 +182,7 @@ function tick(now: number) {
     if (!paused) elapsed += dt
     const pose = facePose(BROW_LIFT, elapsed)
     for (const id of FACE_MOVES) rig.set(id, pose.muscles[id] ?? 0)
+    follow(pose.muscles)
     const left = Math.ceil(((1 - pose.stepProgress) * pose.step.durationMs) / 1000)
     const grow = pose.muscles[BROW_LIFT.arrowsFollow] ?? 0
     arrows?.update(grow, Math.min(1, grow * 3), t)
@@ -202,19 +197,18 @@ function tick(now: number) {
       lastStep = key
     }
     if (pose.done) finish()
-    setHands(pose.muscles[HANDS] ?? 0)
   } else if (state === 'start') {
-    // Waiting: the figure shows the exercise with its own hands, step by step, in a loop.
+    // Waiting: the figure shows the exercise step by step, in a loop.
     const pose = facePose(BROW_LIFT_DEMO, now % demoTotal)
     for (const id of FACE_MOVES) rig.set(id, pose.muscles[id] ?? 0)
-    setHands(pose.muscles[HANDS] ?? 0)
+    follow(pose.muscles)
     const grow = pose.muscles[BROW_LIFT.arrowsFollow] ?? 0
     arrows?.update(grow, Math.min(1, grow * 3), t)
     $('step').textContent = pose.step.label
     $('cue').textContent = pose.step.cue ?? ''
   } else {
     arrows?.update(0, 0, t)
-    setHands(0)
+    follow({})
   }
   frame(Math.sin(t * 0.35) * (state === 'run' ? 0.12 : 0.22), state === 'run' ? { top: 0.27, bottom: 0.77 } : { top: 0.22, bottom: 0.56 })
   renderer.clear()

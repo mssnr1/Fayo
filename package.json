@@ -11,7 +11,7 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
-    "@anima-labs/design": "github:mssnr1/anima-lab-design#93e3a528fbe1007e3e0b697b4bb483ecf41c73e4",
+    "@anima-labs/design": "github:mssnr1/anima-lab-design#a86d21bacab267ac0186502e063b5b60b1b00b50",
     "@fontsource-variable/figtree": "5.3.0",
     "three": "^0.180.0"
   },
