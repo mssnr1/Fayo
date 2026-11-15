@@ -69,7 +69,9 @@ function applyTheme() {
   $('theme').textContent = dark ? '☀︎' : '☾'
   renderer.setClearColor(dark ? 0x0d1120 : 0xfbfbf9, 1)
   const face = faceMuscleMaterial({ palette: FACE_PALETTES[dark ? 'dark' : 'light'], dark, activation })
-  const stripes = makeStripeMaterials(STRIPE_PALETTES[dark ? 'dark' : 'light'], dark, { value: 99 })
+  // By day the figure takes a soft rim, as at night, instead of a drawn ink outline.
+  const skin = dark ? STRIPE_PALETTES.dark : { ...STRIPE_PALETTES.light, bodyRim: FACE_PALETTES.light.bodyRim }
+  const stripes = makeStripeMaterials(skin, dark, { value: 99 }, undefined, undefined, undefined, undefined, { softRim: true })
   faces.forEach((m) => (m.material = face))
   skins.forEach((m) => (m.material = stripes.skin))
   depths.forEach((m) => (m.material = stripes.skinDepth))
@@ -77,7 +79,7 @@ function applyTheme() {
     scene.remove(arrows.group)
     arrows.dispose()
   }
-  arrows = guideArrows(BROW_LIFT.arrows, dark ? { color: '#ffd6e4', color2: '#ffd8b0', glow: true } : { color: '#a3285e', color2: '#c8692e' })
+  arrows = guideArrows(BROW_LIFT.arrows, dark ? { color: '#ffd6e4', color2: '#ffd8b0', glow: true } : { color: '#10bf9c', color2: '#3a8fe8' })
   scene.add(arrows.group)
 }
 applyTheme()

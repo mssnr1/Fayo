@@ -9,8 +9,8 @@
   --on-solid: #f4f5f3;
   --panel: rgb(251 251 249 / 0.78);
   --line: rgb(26 31 51 / 0.12);
-  --light: #c2457a;
-  --light-2: #c8692e;
+  --light: #00a88a;
+  --light-2: #2a7fd4;
   --font: "Figtree Variable", "Figtree", system-ui, -apple-system, sans-serif;
 }
 :root.dark {
