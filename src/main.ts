@@ -97,6 +97,73 @@ $('theme').onclick = () => {
 const HEAD = new THREE.Vector3(0, 1.6, 0.01)
 const COACH_AT = new THREE.Vector3(0, 1.735, 0.06)
 const band = { top: 0.08, bottom: 0.5 }
+/** The person's own view: drag to turn, pinch or wheel to zoom, two fingers to pan, double tap to reset. */
+const view = { yaw: 0, pitch: 0, zoom: 1, panX: 0, panY: 0, held: false, touched: 0 }
+{
+  const el = renderer.domElement
+  const pts = new Map<number, { x: number; y: number }>()
+  let last = 0
+  const clamp = (v: number, a: number, b: number) => Math.min(Math.max(v, a), b)
+  const centre = () => {
+    const a = [...pts.values()]
+    return { x: a.reduce((s, p) => s + p.x, 0) / a.length, y: a.reduce((s, p) => s + p.y, 0) / a.length }
+  }
+  const spread = () => {
+    const [a, b] = [...pts.values()]
+    return b ? Math.hypot(a.x - b.x, a.y - b.y) : 0
+  }
+  let prev = { x: 0, y: 0 }
+  let prevSpread = 0
+  const reset = () => Object.assign(view, { yaw: 0, pitch: 0, zoom: 1, panX: 0, panY: 0, held: false })
+  el.addEventListener('pointerdown', (e) => {
+    el.setPointerCapture(e.pointerId)
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    prev = centre()
+    prevSpread = spread()
+    if (pts.size === 1) {
+      const now = performance.now()
+      if (now - last < 300) reset()
+      last = now
+    }
+  })
+  el.addEventListener('pointermove', (e) => {
+    if (!pts.has(e.pointerId)) return
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    const c = centre()
+    const dx = c.x - prev.x
+    const dy = c.y - prev.y
+    const h = innerHeight
+    if (pts.size === 1 && !e.shiftKey && e.button !== 2 && !(e.buttons & 2)) {
+      view.yaw = clamp(view.yaw - (dx / h) * 3, -Math.PI * 0.95, Math.PI * 0.95)
+      view.pitch = clamp(view.pitch + (dy / h) * 2, -0.9, 0.9)
+    } else {
+      view.panX += dx / h
+      view.panY += dy / h
+      const s = spread()
+      if (s && prevSpread) view.zoom = clamp(view.zoom * (prevSpread / s), 0.35, 3)
+      prevSpread = s
+    }
+    view.panX = clamp(view.panX, -1, 1)
+    view.panY = clamp(view.panY, -1, 1)
+    view.held = true
+    prev = c
+  })
+  const up = (e: PointerEvent) => {
+    pts.delete(e.pointerId)
+    prev = pts.size ? centre() : prev
+    prevSpread = spread()
+  }
+  el.addEventListener('pointerup', up)
+  el.addEventListener('pointercancel', up)
+  el.addEventListener('contextmenu', (e) => e.preventDefault())
+  el.addEventListener('wheel', (e) => {
+    e.preventDefault()
+    view.zoom = clamp(view.zoom * Math.exp(e.deltaY * 0.0015), 0.35, 3)
+    view.held = true
+  }, { passive: false })
+  el.addEventListener('dblclick', reset)
+}
+
 function frame(yaw: number, want: { top: number; bottom: number }) {
   band.top += (want.top - band.top) * 0.06
   band.bottom += (want.bottom - band.bottom) * 0.06
@@ -110,8 +177,24 @@ function frame(yaw: number, want: { top: number; bottom: number }) {
   const visibleH = Math.max(0.3 / (band.bottom - band.top), 0.26 / camera.aspect)
   const dist = visibleH / 2 / Math.tan(half)
   const lookY = HEAD.y - visibleH * (0.5 - (band.top + band.bottom) / 2)
-  camera.position.set(Math.sin(yaw) * dist, lookY + 0.03, HEAD.z + Math.cos(yaw) * dist)
-  camera.lookAt(0, lookY, HEAD.z)
+  // The person's own view on top: turn, tilt, zoom and pan; the gentle sway fades while they hold a view.
+  const sway = 1 - view.touched
+  view.touched += ((view.held ? 1 : 0) - view.touched) * 0.08
+  const turn = yaw * sway + view.yaw
+  const r = dist * view.zoom
+  const target = new THREE.Vector3(0, lookY, HEAD.z)
+  camera.position.set(
+    Math.sin(turn) * Math.cos(view.pitch) * r,
+    lookY + 0.03 + Math.sin(view.pitch) * r,
+    HEAD.z + Math.cos(turn) * Math.cos(view.pitch) * r,
+  )
+  camera.lookAt(target)
+  camera.updateMatrixWorld()
+  const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0)
+  const up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1)
+  const shift = right.multiplyScalar(-view.panX * visibleH * view.zoom).add(up.multiplyScalar(view.panY * visibleH * view.zoom))
+  camera.position.add(shift)
+  camera.lookAt(target.add(shift))
   camera.updateProjectionMatrix()
   camera.updateMatrixWorld()
   // The instruction stands just above the head, where the arrows point.
