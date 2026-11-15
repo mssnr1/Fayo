@@ -4,10 +4,10 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import modelUrl from '@anima-labs/design/models/atmen-anatomy.glb?url'
 import { faceExerciseDuration, facePose } from '@anima-labs/design/engine'
 import { FACE_MOVES, FACE_PALETTES, faceActivation, faceMuscleMaterial, faceMuscleRig, guideArrows, makeStripeMaterials, muscleHead, STRIPE_PALETTES } from '@anima-labs/design/figure'
-import { BROW_LIFT, BROW_LIFT_DEMO } from './exercises'
+import { EXERCISES, type FayoExercise } from './exercises'
 
 /**
- * Fayo: one guided exercise (Brauen-Lift) on the shared figure. The face map lights and moves the
+ * Fayo: guided face exercises on the shared figure, chosen from an overview of cards. The face map lights and moves the
  * muscle the step is about; the text guides. Everything runs in the page, nothing is stored but the look.
  */
 const $ = (id: string) => document.getElementById(id)!
@@ -62,6 +62,9 @@ scene.add(model)
 // Movements a little larger than life, so it is clear on a phone what to do.
 const rig = faceMuscleRig(activation, rigged, 1.3)
 let arrows: ReturnType<typeof guideArrows> | null = null
+const base = import.meta.env.BASE_URL
+const params = new URLSearchParams(location.search)
+let ex: FayoExercise = EXERCISES.find((e) => e.id === params.get('ex')) ?? EXERCISES[0]
 
 function applyTheme() {
   root.classList.toggle('dark', dark)
@@ -79,8 +82,9 @@ function applyTheme() {
     scene.remove(arrows.group)
     arrows.dispose()
   }
-  arrows = guideArrows(BROW_LIFT.arrows, dark ? { color: '#ffd6e4', color2: '#ffd8b0', glow: true } : { color: '#10bf9c', color2: '#3a8fe8' })
+  arrows = guideArrows(ex.arrows, dark ? { color: '#ffd6e4', color2: '#ffd8b0', glow: true } : { color: '#10bf9c', color2: '#3a8fe8' })
   scene.add(arrows.group)
+  document.querySelectorAll<HTMLImageElement>('img[data-card]').forEach((img) => (img.src = `${img.dataset.card}-${dark ? 'dark' : 'light'}.png`))
 }
 applyTheme()
 $('theme').onclick = () => {
@@ -94,7 +98,7 @@ $('theme').onclick = () => {
 }
 
 // Framing: the head between `top` and `bottom` (fractions of the screen from the top), above the guide.
-const HEAD = new THREE.Vector3(0, 1.6, 0.01)
+const HEAD = new THREE.Vector3(0, ex.focus, 0.01)
 const COACH_AT = new THREE.Vector3(0, 1.735, 0.06)
 const band = { top: 0.08, bottom: 0.5 }
 /** The person's own view: drag to turn, pinch or wheel to zoom, two fingers to pan, double tap to reset. */
@@ -167,6 +171,7 @@ const view = { yaw: 0, pitch: 0, zoom: 1, panX: 0, panY: 0, held: false, touched
 function frame(yaw: number, want: { top: number; bottom: number }) {
   band.top += (want.top - band.top) * 0.06
   band.bottom += (want.bottom - band.bottom) * 0.06
+  HEAD.y += (ex.focus - HEAD.y) * 0.06
   const w = innerWidth
   const h = innerHeight
   renderer.setSize(w, h, false)
@@ -204,19 +209,56 @@ function frame(yaw: number, want: { top: number; bottom: number }) {
 }
 
 // The session.
-type State = 'start' | 'run' | 'done'
-let state: State = 'start'
+type State = 'overview' | 'start' | 'run' | 'done'
+let state: State = 'overview'
 let elapsed = 0
 let paused = false
 let last = performance.now()
 let lastStep = ''
-const total = faceExerciseDuration(BROW_LIFT)
+let total = faceExerciseDuration(ex)
+let demoTotal = faceExerciseDuration(ex.demo)
+let demoFrom = 0
 let wake: { release(): Promise<void> } | null = null
 
 function show(s: State) {
   state = s
-  for (const id of ['start', 'run', 'done']) $(id).classList.toggle('hidden', id !== s)
-  $('coach').classList.toggle('hidden', s === 'done')
+  for (const id of ['overview', 'start', 'run', 'done']) $(id).classList.toggle('hidden', id !== s)
+  $('coach').classList.toggle('hidden', s === 'done' || s === 'overview')
+}
+function rest() {
+  for (const id of FACE_MOVES) rig.set(id, 0)
+  follow({})
+}
+/** Opens an exercise's start sheet: its figure shows it once, step by step, in a loop. */
+function choose(next: FayoExercise) {
+  rest()
+  ex = next
+  total = faceExerciseDuration(ex)
+  demoTotal = faceExerciseDuration(ex.demo)
+  demoFrom = performance.now()
+  $('ex-title').textContent = ex.title
+  $('ex-minutes').textContent = `${ex.target} · ${ex.minutes}`
+  $('ex-lead').textContent = ex.lead
+  $('ex-fine').textContent = ex.fine
+  document.title = `Fayo · ${ex.title}`
+  applyTheme()
+  show('start')
+}
+function overview() {
+  rest()
+  document.title = 'Fayo · Gesichtsübungen'
+  show('overview')
+}
+for (const e of EXERCISES) {
+  const card = document.createElement('button')
+  card.className = 'card'
+  card.innerHTML = `<img alt="" data-card="${base}${e.card}"><div><p class="what"></p><h3></h3><p class="blurb"></p></div>`
+  card.querySelector('.what')!.textContent = `${e.target} · ${e.minutes}`
+  card.querySelector('h3')!.textContent = e.title
+  card.querySelector('.blurb')!.textContent = e.blurb
+  card.querySelector('img')!.src = `${base}${e.card}-${dark ? 'dark' : 'light'}.png`
+  card.onclick = () => choose(e)
+  $('cards').appendChild(card)
 }
 async function begin() {
   elapsed = 0
@@ -232,16 +274,15 @@ async function begin() {
 }
 function finish() {
   show('done')
-  for (const id of FACE_MOVES) rig.set(id, 0)
+  rest()
   wake?.release().catch(() => {})
   wake = null
 }
 $('go').onclick = begin
 $('again').onclick = begin
-$('stop').onclick = () => {
-  show('start')
-  for (const id of FACE_MOVES) rig.set(id, 0)
-}
+$('home').onclick = overview
+$('back').onclick = overview
+$('stop').onclick = () => choose(ex)
 $('pause').onclick = () => {
   paused = !paused
   $('pause').textContent = paused ? 'Weiter' : 'Pause'
@@ -250,11 +291,12 @@ const go = $('go') as HTMLButtonElement
 go.disabled = false
 go.textContent = 'Starten'
 
-const demoTotal = faceExerciseDuration(BROW_LIFT_DEMO)
+/** How strongly the arrows' muscle works at most in the exercise: the arrows are drawn full there. */
+const peak = () => Math.max(1e-3, ...ex.steps.map((st) => st.muscles[ex.arrowsFollow] ?? 0))
 /** The neighbouring skin moves along with the working muscle. */
 function follow(muscles: Record<string, number>) {
-  const k = muscles[BROW_LIFT.follow.by] ?? 0
-  for (const [id, share] of Object.entries(BROW_LIFT.follow.areas)) rig.follow(id, share * k)
+  const k = muscles[ex.follow.by] ?? 0
+  for (const [id, share] of Object.entries(ex.follow.areas)) rig.follow(id, share * k)
 }
 
 function tick(now: number) {
@@ -263,16 +305,16 @@ function tick(now: number) {
   const t = now / 1000
   if (state === 'run') {
     if (!paused) elapsed += dt
-    const pose = facePose(BROW_LIFT, elapsed)
+    const pose = facePose(ex, elapsed)
     for (const id of FACE_MOVES) rig.set(id, pose.muscles[id] ?? 0)
     follow(pose.muscles)
     const left = Math.ceil(((1 - pose.stepProgress) * pose.step.durationMs) / 1000)
-    const grow = pose.muscles[BROW_LIFT.arrowsFollow] ?? 0
+    const grow = Math.min(1, (pose.muscles[ex.arrowsFollow] ?? 0) / peak())
     arrows?.update(grow, Math.min(1, grow * 3), t)
     $('step').textContent = pose.step.label
     $('cue').textContent = pose.step.cue ?? ''
     $('count').textContent = paused ? 'Pause' : `${left} s`
-    $('rep').textContent = pose.repetition >= 0 ? `${pose.repetition + 1} von ${BROW_LIFT.repetitions}` : ''
+    $('rep').textContent = pose.repetition >= 0 ? `${pose.repetition + 1} von ${ex.repetitions}` : ''
     ;($('progress') as HTMLElement).style.width = `${(elapsed / total) * 100}%`
     const key = `${pose.repetition}-${pose.step.label}`
     if (key !== lastStep) {
@@ -282,16 +324,15 @@ function tick(now: number) {
     if (pose.done) finish()
   } else if (state === 'start') {
     // Waiting: the figure shows the exercise step by step, in a loop.
-    const pose = facePose(BROW_LIFT_DEMO, now % demoTotal)
+    const pose = facePose(ex.demo, (now - demoFrom) % demoTotal)
     for (const id of FACE_MOVES) rig.set(id, pose.muscles[id] ?? 0)
     follow(pose.muscles)
-    const grow = pose.muscles[BROW_LIFT.arrowsFollow] ?? 0
+    const grow = Math.min(1, (pose.muscles[ex.arrowsFollow] ?? 0) / peak())
     arrows?.update(grow, Math.min(1, grow * 3), t)
     $('step').textContent = pose.step.label
     $('cue').textContent = pose.step.cue ?? ''
   } else {
     arrows?.update(0, 0, t)
-    follow({})
   }
   frame(Math.sin(t * 0.35) * (state === 'run' ? 0.12 : 0.22), state === 'run' ? { top: 0.27, bottom: 0.77 } : { top: 0.22, bottom: 0.56 })
   renderer.clear()
@@ -300,3 +341,8 @@ function tick(now: number) {
 }
 requestAnimationFrame(tick)
 ;(window as unknown as { ready: boolean }).ready = true
+
+// A link can open one exercise directly (?ex=cheek-lift), and ?run starts it (for the card pictures).
+show('overview')
+if (params.get('ex')) choose(ex)
+if (params.has('run')) begin()
