@@ -30,9 +30,9 @@ export const BROW_LIFT: FayoExercise = {
   // World metres on the figure's left; each is mirrored to the right.
   arrows: [
     // The brow raiser pulls the forehead up.
-    { from: [0.03, 1.64, 0.108], to: [0.03, 1.703, 0.088], bow: 0.012 },
+    { from: [0.03, 1.64, 0.108], to: [0.03, 1.712, 0.085], bow: 0.012 },
     // The eye opens: upper lid up, lower lid down.
-    { from: [0.033, 1.603, 0.1], to: [0.036, 1.63, 0.104], bow: 0.004 },
+    { from: [0.033, 1.603, 0.1], to: [0.036, 1.642, 0.104], bow: 0.004 },
     { from: [0.033, 1.576, 0.097], to: [0.035, 1.55, 0.098], bow: 0.004 },
   ],
   arrowsFollow: 'frontalis',
