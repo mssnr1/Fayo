@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import modelUrl from '@anima-labs/design/models/atmen-anatomy.glb?url'
 import { faceExerciseDuration, facePose } from '@anima-labs/design/engine'
-import { FACE_MUSCLES, FACE_PALETTES, faceActivation, faceMuscleMaterial, faceMuscleRig, makeStripeMaterials, muscleHead, STRIPE_PALETTES } from '@anima-labs/design/figure'
+import { FACE_MOVES, FACE_PALETTES, faceActivation, faceMuscleMaterial, faceMuscleRig, guideArrows, makeStripeMaterials, muscleHead, STRIPE_PALETTES } from '@anima-labs/design/figure'
 import { BROW_LIFT } from './exercises'
 
 /**
@@ -59,7 +59,9 @@ model.traverse((o) => {
 })
 depths.forEach((d) => model.add(d))
 scene.add(model)
-const rig = faceMuscleRig(activation, rigged)
+// Movements a little larger than life, so it is clear on a phone what to do.
+const rig = faceMuscleRig(activation, rigged, 1.3)
+let arrows: ReturnType<typeof guideArrows> | null = null
 
 function applyTheme() {
   root.classList.toggle('dark', dark)
@@ -71,6 +73,12 @@ function applyTheme() {
   faces.forEach((m) => (m.material = face))
   skins.forEach((m) => (m.material = stripes.skin))
   depths.forEach((m) => (m.material = stripes.skinDepth))
+  if (arrows) {
+    scene.remove(arrows.group)
+    arrows.dispose()
+  }
+  arrows = guideArrows(BROW_LIFT.arrows, dark ? { color: '#ffd6e4', color2: '#ffd8b0', glow: true } : { color: '#a3285e', color2: '#c8692e' })
+  scene.add(arrows.group)
 }
 applyTheme()
 $('theme').onclick = () => {
@@ -83,25 +91,31 @@ $('theme').onclick = () => {
   applyTheme()
 }
 
-// Framing: the head in the upper part of the screen, above the text.
+// Framing: the head between `top` and `bottom` (fractions of the screen from the top), above the guide.
 const HEAD = new THREE.Vector3(0, 1.6, 0.01)
-let room = 0.4
-function frame(yaw: number, want: number) {
-  // How much of the screen (from the top) the head gets: less while a sheet with text is up.
-  room += (want - room) * 0.06
+const COACH_AT = new THREE.Vector3(0, 1.735, 0.06)
+const band = { top: 0.08, bottom: 0.5 }
+function frame(yaw: number, want: { top: number; bottom: number }) {
+  band.top += (want.top - band.top) * 0.06
+  band.bottom += (want.bottom - band.bottom) * 0.06
   const w = innerWidth
   const h = innerHeight
   renderer.setSize(w, h, false)
   renderer.setViewport(0, 0, w, h)
   camera.aspect = w / h
   const half = THREE.MathUtils.degToRad(camera.fov / 2)
-  // Head with a little air (0.3 m tall, 0.26 m wide) in the top `room` of the screen.
-  const visibleH = Math.max(0.3 / room, 0.26 / camera.aspect)
+  // Head with a little air: 0.3 m tall, 0.26 m wide.
+  const visibleH = Math.max(0.3 / (band.bottom - band.top), 0.26 / camera.aspect)
   const dist = visibleH / 2 / Math.tan(half)
-  const lookY = HEAD.y - visibleH * (0.5 - room / 2) + 0.01
+  const lookY = HEAD.y - visibleH * (0.5 - (band.top + band.bottom) / 2)
   camera.position.set(Math.sin(yaw) * dist, lookY + 0.03, HEAD.z + Math.cos(yaw) * dist)
   camera.lookAt(0, lookY, HEAD.z)
   camera.updateProjectionMatrix()
+  camera.updateMatrixWorld()
+  // The instruction stands just above the head, where the arrows point.
+  const p = COACH_AT.clone().project(camera)
+  const coach = $('coach')
+  coach.style.top = `${Math.max(64, ((1 - p.y) / 2) * h - coach.offsetHeight)}px`
 }
 
 // The session.
@@ -132,7 +146,7 @@ async function begin() {
 }
 function finish() {
   show('done')
-  for (const id of FACE_MUSCLES) rig.set(id, 0)
+  for (const id of FACE_MOVES) rig.set(id, 0)
   wake?.release().catch(() => {})
   wake = null
 }
@@ -140,7 +154,7 @@ $('go').onclick = begin
 $('again').onclick = begin
 $('stop').onclick = () => {
   show('start')
-  for (const id of FACE_MUSCLES) rig.set(id, 0)
+  for (const id of FACE_MOVES) rig.set(id, 0)
 }
 $('pause').onclick = () => {
   paused = !paused
@@ -157,8 +171,10 @@ function tick(now: number) {
   if (state === 'run') {
     if (!paused) elapsed += dt
     const pose = facePose(BROW_LIFT, elapsed)
-    for (const id of FACE_MUSCLES) rig.set(id, pose.muscles[id] ?? 0)
+    for (const id of FACE_MOVES) rig.set(id, pose.muscles[id] ?? 0)
     const left = Math.ceil(((1 - pose.stepProgress) * pose.step.durationMs) / 1000)
+    const grow = pose.muscles[BROW_LIFT.arrowsFollow] ?? 0
+    arrows?.update(grow, Math.min(1, grow * 3), t)
     $('step').textContent = pose.step.label
     $('cue').textContent = pose.step.cue ?? ''
     $('count').textContent = paused ? 'Pause' : `${left} s`
@@ -172,9 +188,11 @@ function tick(now: number) {
     if (pose.done) finish()
   } else if (state === 'start') {
     // Waiting: the muscle of the exercise breathes softly, so it is clear what it is about.
-    rig.set('frontalis', 0.25 + 0.2 * Math.sin(t * 1.4))
-  }
-  frame(Math.sin(t * 0.35) * (state === 'run' ? 0.14 : 0.3), state === 'run' ? 0.6 : 0.42)
+    const v = 0.25 + 0.2 * Math.sin(t * 1.4)
+    rig.set('frontalis', v)
+    arrows?.update(v * 1.6, 0.6, t)
+  } else arrows?.update(0, 0, t)
+  frame(Math.sin(t * 0.35) * (state === 'run' ? 0.12 : 0.3), state === 'run' ? { top: 0.27, bottom: 0.77 } : { top: 0.07, bottom: 0.45 })
   renderer.clear()
   renderer.render(scene, camera)
   requestAnimationFrame(tick)

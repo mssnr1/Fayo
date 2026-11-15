@@ -50,8 +50,9 @@ h1 { margin: 0 0 6px; font-size: 30px; font-weight: 650; letter-spacing: -0.01em
 .guide { width: 100%; max-width: 440px; text-align: center; }
 .meta { display: flex; justify-content: space-between; font-size: 15px; color: var(--ink-2); font-variant-numeric: tabular-nums; margin-bottom: 4px; }
 #count { color: var(--ink); font-weight: 600; }
-h2 { margin: 0 0 6px; font-size: 34px; font-weight: 650; color: var(--light); letter-spacing: -0.01em; }
-#cue { margin: 0 auto 16px; min-height: 4.4em; max-width: 360px; font-size: 17px; line-height: 1.45; }
+#coach { position: fixed; left: 16px; right: 16px; text-align: center; pointer-events: none; transition: top 0.3s; }
+h2 { margin: 0 0 4px; font-size: 34px; font-weight: 650; color: var(--light); letter-spacing: -0.01em; }
+#cue { margin: 0 auto 10px; max-width: 340px; font-size: 18px; line-height: 1.4; font-weight: 500; }
 .bar { height: 4px; border-radius: 4px; background: var(--line); overflow: hidden; margin-bottom: 18px; }
 .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--light-2), var(--light)); }
 .row { display: flex; gap: 10px; justify-content: center; }
@@ -59,4 +60,5 @@ h2 { margin: 0 0 6px; font-size: 34px; font-weight: 650; color: var(--light); le
 
 .credit { position: fixed; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 10px); text-align: center; font-size: 11px; color: var(--ink-2); opacity: 0.7; padding: 0 16px; z-index: 1; }
 /* A soft veil of page colour under the guide, so the text reads over the figure's lines. */
-#run { padding-top: 70px; background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--paper) 88%, transparent) 38%); }
+#run { padding-top: 40px; background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--paper) 80%, transparent) 45%); }
+#coach { text-shadow: 0 0 18px var(--paper), 0 0 6px var(--paper); }
