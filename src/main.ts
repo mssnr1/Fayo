@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import modelUrl from '@anima-labs/design/models/atmen-anatomy.glb?url'
 import { faceExerciseDuration, facePose } from '@anima-labs/design/engine'
-import { FACE_MOVES, FACE_PALETTES, faceActivation, faceMuscleMaterial, faceMuscleRig, guideArrows, makeStripeMaterials, muscleHead, STRIPE_PALETTES } from '@anima-labs/design/figure'
+import { FACE_MOVES, FACE_PALETTES, faceActivation, faceMuscleMaterial, faceMuscleRig, guideArrows, guideHands, makeStripeMaterials, muscleHead, STRIPE_PALETTES } from '@anima-labs/design/figure'
 import { EXERCISES, type FayoExercise } from './exercises'
 
 /**
@@ -62,6 +62,7 @@ scene.add(model)
 // Movements a little larger than life, so it is clear on a phone what to do.
 const rig = faceMuscleRig(activation, rigged, 1.3)
 let arrows: ReturnType<typeof guideArrows> | null = null
+let hands: ReturnType<typeof guideHands> | null = null
 const base = import.meta.env.BASE_URL
 const params = new URLSearchParams(location.search)
 let ex: FayoExercise = EXERCISES.find((e) => e.id === params.get('ex')) ?? EXERCISES[0]
@@ -84,6 +85,13 @@ function applyTheme() {
   }
   arrows = guideArrows(ex.arrows, dark ? { color: '#ffd6e4', color2: '#ffd8b0', glow: true } : { color: '#10bf9c', color2: '#3a8fe8' })
   scene.add(arrows.group)
+  if (hands) {
+    scene.remove(hands.group)
+    hands.dispose()
+  }
+  // The hands, where an exercise uses them, in the figure's own look (by day quiet grey, at night a glow).
+  hands = ex.hands ? guideHands(ex.hands, dark ? { line: '#b3a6ff', fill: '#3d3aa6', glow: true } : { line: '#9ea3b5', fill: '#ffffff', fillAlpha: 0.8 }) : null
+  if (hands) scene.add(hands.group)
   document.querySelectorAll<HTMLImageElement>('img[data-card]').forEach((img) => (img.src = `${img.dataset.card}-${dark ? 'dark' : 'light'}.png`))
 }
 applyTheme()
@@ -311,6 +319,7 @@ function tick(now: number) {
     const left = Math.ceil(((1 - pose.stepProgress) * pose.step.durationMs) / 1000)
     const grow = Math.min(1, (pose.muscles[ex.arrowsFollow] ?? 0) / peak())
     arrows?.update(grow, Math.min(1, grow * 3), t)
+    hands?.update(grow, 1)
     $('step').textContent = pose.step.label
     $('cue').textContent = pose.step.cue ?? ''
     $('count').textContent = paused ? 'Pause' : `${left} s`
@@ -329,10 +338,12 @@ function tick(now: number) {
     follow(pose.muscles)
     const grow = Math.min(1, (pose.muscles[ex.arrowsFollow] ?? 0) / peak())
     arrows?.update(grow, Math.min(1, grow * 3), t)
+    hands?.update(grow, 1)
     $('step').textContent = pose.step.label
     $('cue').textContent = pose.step.cue ?? ''
   } else {
     arrows?.update(0, 0, t)
+    hands?.update(0, 0)
   }
   frame(Math.sin(t * 0.35) * (state === 'run' ? 0.12 : 0.22), state === 'run' ? { top: 0.27, bottom: 0.77 } : { top: 0.22, bottom: 0.56 })
   renderer.clear()

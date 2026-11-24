@@ -1,5 +1,5 @@
 import type { FaceExercise } from '@anima-labs/design/engine'
-import type { GuideArrow } from '@anima-labs/design/figure'
+import type { GuideArrow, GuideHand } from '@anima-labs/design/figure'
 
 /** A face exercise plus the arrows that show which way its muscles pull (drawn while they work). */
 export type FayoExercise = FaceExercise & {
@@ -19,6 +19,8 @@ export type FayoExercise = FaceExercise & {
   focus: number
   arrows: GuideArrow[]
   arrowsFollow: string
+  /** Hands laid on the face where the exercise uses them (left one given, the right one mirrored); they pull as the arrows grow. */
+  hands?: GuideHand[]
   /** The skin around the working muscle moves a little with it (without lighting up): area -> share of `by`. */
   follow: { by: string; areas: Record<string, number> }
 }
@@ -168,9 +170,9 @@ export const CHEEK_LIFT: FayoExercise = {
   id: 'cheek-lift',
   title: 'Wangen-Lift',
   target: 'Wangenknochen',
-  blurb: 'Mit geschlossenen Lippen lächeln, die Wangen heben sich.',
+  blurb: 'Finger als V an die Augenwinkel, mit geschlossenen Lippen lächeln.',
   minutes: '2 Minuten',
-  lead: 'Trainiert die Lachmuskeln, die Mundwinkel und Wangen zu den Wangenknochen heben. Für eine vollere Wangenpartie.',
+  lead: 'Trainiert die Lachmuskeln, die Mundwinkel und Wangen zu den Wangenknochen heben. Die Finger halten dabei die Haut an den Krähenfüßen glatt. Für eine vollere Wangenpartie.',
   fine: '10 Wiederholungen. Kiefer locker lassen. In einer kleinen Studie wurden die Wangen nach 20 Wochen Training etwas voller.',
   card: 'cards/cheek-lift',
   get demo() {
@@ -178,11 +180,11 @@ export const CHEEK_LIFT: FayoExercise = {
   },
   focus: 1.56,
   intro: [
-    { label: 'Ankommen', cue: 'Fingerspitzen locker auf die Wangenknochen legen. Lippen geschlossen, Zähne nicht aufeinander.', durationMs: 5000, muscles: {} },
+    { label: 'Ankommen', cue: 'Zeige- und Mittelfinger als V an die Augenaußenwinkel legen, die übrigen Finger zur Faust. Lippen geschlossen.', durationMs: 5000, muscles: {} },
   ],
   steps: [
-    { label: 'Lächeln', cue: 'Mit geschlossenen Lippen breit lächeln, die Mundwinkel schräg zu den Wangenknochen ziehen.', durationMs: 2500, muscles: SMILE },
-    { label: 'Halten', cue: 'Halten. Die Wangen heben sich unter den Fingern, die Stirn bleibt glatt.', durationMs: 5000, muscles: SMILE, pulse: 0.12 },
+    { label: 'Lächeln', cue: 'Mit geschlossenen Lippen breit lächeln. Die Finger halten die Haut an den Augenwinkeln sanft nach unten.', durationMs: 2500, muscles: SMILE },
+    { label: 'Halten', cue: 'Halten. Die Wangen heben sich, unter den Fingern bleibt die Haut glatt.', durationMs: 5000, muscles: SMILE, pulse: 0.12 },
     { label: 'Lösen', cue: 'Langsam loslassen.', durationMs: 2500, muscles: {} },
     { label: 'Pause', cue: 'Durchatmen.', durationMs: 2000, muscles: {} },
   ],
@@ -195,6 +197,8 @@ export const CHEEK_LIFT: FayoExercise = {
     { from: [0.034, 1.51, 0.094], to: [0.062, 1.566, 0.082], bow: 0.01 },
   ],
   arrowsFollow: 'zygomaticusLeft',
+  // Index and middle finger in a V at the crow's feet hold the skin there down while the cheeks rise.
+  hands: [{ at: [0.057, 1.588, 0.06], normal: [0.6, 0, 0.8], fingers: [-0.35, 1, 0.15], pull: [0, -0.004, 0] }],
   // A smile lifts the nose wings and the chin a touch, and the jaw and temples firm a little.
   follow: {
     by: 'zygomaticusLeft',
@@ -205,8 +209,8 @@ export const CHEEK_LIFT: FayoExercise = {
 export const CHEEK_LIFT_DEMO: FaceExercise = {
   id: 'cheek-lift-demo',
   steps: [
-    { label: '1 · Anlegen', cue: 'Fingerspitzen auf die Wangenknochen, Lippen zu.', durationMs: 3200, muscles: {} },
-    { label: '2 · Lächeln', cue: 'Mundwinkel schräg nach oben zu den Wangenknochen.', durationMs: 2400, muscles: SMILE },
+    { label: '1 · Anlegen', cue: 'Finger als V an die Augenwinkel, Lippen zu.', durationMs: 3200, muscles: {} },
+    { label: '2 · Lächeln', cue: 'Lächeln, die Finger halten die Haut sanft nach unten.', durationMs: 2400, muscles: SMILE },
     { label: '3 · Halten', cue: 'Halten, die Wangen heben sich.', durationMs: 3200, muscles: SMILE, pulse: 0.12 },
     { label: '4 · Lösen', cue: 'Langsam loslassen.', durationMs: 2800, muscles: {} },
   ],
